@@ -11,7 +11,7 @@
     "test": "cross-env NODE_ENV=development cross-env TEST_MODE=true nyc mocha --exit",
     "check": "echo \"Checking...\" && tsc && npm run lint",
     "dev": "cross-env NODE_ENV=development nodemon --watch scripts --watch dist dist/scripts/dev.js",
-    "d": "cross-env NODE_ENV=development node dist/scripts/dev.js",
+    "d": "rimraf -rf dist/ && tsc && cross-env NODE_ENV=development node dist/scripts/dev.js",
     "create-db": "cross-env NODE_ENV=development node dist/scripts/init",
     "start": "cross-env NODE_ENV=production pm2 start dist/dispatch.js --name=rap-server-delos",
     "lint": "echo \"TSLint checking...\" && tslint -c tslint.json --fix 'src/**/*.ts' 'src/**/*.tsx'",

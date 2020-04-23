@@ -23,6 +23,18 @@ import * as moment from 'moment'
 //   }
 //   return getValue({id: -1})
 // }
+
+const requestFilter = ['id']
+const responseFilter = ['string']
+
+const unique = (array: any[]) => {
+  let obj = {}
+  return array.filter( item => {
+    return obj.hasOwnProperty(typeof item + JSON.stringify(item))?
+    false : (obj[typeof item + JSON.stringify(item)] = true)
+  })
+}
+
 const countMath = (list: any[]) => {
   list.map(item => {
       list.map(item2 => {
@@ -52,16 +64,29 @@ const createSign = (num: number): string => {
   return result
 }
 
-const filterArr = (arr: any[], type: string): any[] => {
+const filterArr = (arr: any[], type: string, filter: any[] = [], option: string = 'private'): any[] => {
   countMath(arr)
   let result = []
-  arr.map((item: any) => {
-    if (item.scope === type){
-      result.push(item)
-    }
-  })
   let parentArr = []
   let childrenArr = []
+  let uniqueArr = []
+
+  arr.map((item: any) => {
+    if (item.scope === type){
+      if (filter.length === 0) {
+        result.push(item)
+      } else {
+        filter.map(key => {
+          if (option === 'private' && item.name !== key) {
+            result.push(item)
+          } else if (option === 'public' && item.name == key) {
+            result.push(item)
+          }
+        })
+      }
+    }
+  })
+
   result.forEach(item => {
     if (item.parentId === -1) {
       parentArr.push(item)
@@ -69,6 +94,7 @@ const filterArr = (arr: any[], type: string): any[] => {
       childrenArr.push(item)
     }
   })
+
   for(let i = 0; i < parentArr.length; i++) {
     for(let j = 0; j < childrenArr.length; j++) {
       if (parentArr[i].id === childrenArr[j].parentId) {
@@ -76,13 +102,34 @@ const filterArr = (arr: any[], type: string): any[] => {
       }
     }
   }
-  return parentArr
+
+  parentArr.map(item => {
+    uniqueArr.push({
+      name: item.name,
+      parentId: item.parentId,
+      count: item.count,
+      type: item.type,
+      description: item.description
+    })
+  })
+
+  return unique(uniqueArr)
 }
 
 const formatData = (arr: any[]): string => {
   var result = ''
   arr.forEach((item: any) => {
     result += `${item} \n`
+  })
+  return result
+}
+
+const propArr = (arr: any[]): any[] => {
+  let result = []
+  arr.map(item => {
+    item.properties.map(item2 => {
+      result.push(item2)
+    })
   })
   return result
 }
@@ -129,7 +176,7 @@ export default class PostmanService {
       ]
     })
     const result = dedent`
-    ***本文档由 Rap2 (https://github.com/thx/rap2-delos) 生成***
+    ***设备协议***
 
     ***本项目仓库：[${origin}/repository/editor?id=${repositoryId}](${origin}/repository/editor?id=${repositoryId}) ***
 
@@ -139,19 +186,35 @@ export default class PostmanService {
     ${repo.modules
       .map(m => dedent`
       ## 模块：${m.name}
+      * 公用请求接口格式：
+
+      | 名称 | 类型 | 描述 |
+      | :---- | :---- | :---- |
+      ${formatData(filterArr(propArr(m.interfaces), 'request', requestFilter, 'public').map(prop => {
+        return prop.parentId > -1 ? `| ${createSign(prop.count)}${prop.name} | ${prop.type} | ${prop.description} |` 
+          : `| ${prop.name} | ${prop.type} | ${prop.description} |`
+      }))}
+
+      * 公用返回接口格式：
+
+      | 名称 | 类型 | 描述 |
+      | :---- | :---- | :---- |
+      ${formatData(filterArr(propArr(m.interfaces), 'response', responseFilter, 'public').map(prop => {
+        return prop.parentId > -1 ? `| ${createSign(prop.count)}${prop.name} | ${prop.type} | ${prop.description} |` 
+          : `| ${prop.name} | ${prop.type} | ${prop.description} |`
+      }))}  
+
       ${m.interfaces.map(intf => dedent`
         ### 接口：${intf.name}
         * 地址：${intf.url}
         * 修改时间：${dateFtt('yyyy-MM-dd hh:mm:ss',intf.updatedAt)}
-        * 类型：${intf.method}
-        * 状态码：${intf.status}
         * 简介：${intf.description || '无'}
-        * Rap地址：[${origin}/repository/editor?id=${repositoryId}&mod=${m.id}&itf=${intf.id}](${origin}/repository/editor?id=${repositoryId}&mod=${m.id}&itf=${intf.id})
+
         * 请求接口格式：
 
         | 名称 | 类型 | 描述 |
         | :---- | :---- | :---- |
-        ${formatData(filterArr(intf.properties, 'request').map(prop => {
+        ${formatData(filterArr(intf.properties, 'request', requestFilter).map(prop => {
           return prop.parentId > -1 ? `| ${createSign(prop.count)}${prop.name} | ${prop.type} | ${prop.description} |` 
             : `| ${prop.name} | ${prop.type} | ${prop.description} |`
         }))}
@@ -160,7 +223,7 @@ export default class PostmanService {
 
         | 名称 | 类型 | 描述 |
         | :---- | :---- | :---- |
-        ${formatData(filterArr(intf.properties, 'response').map(prop => {
+        ${formatData(filterArr(intf.properties, 'response', responseFilter).map(prop => {
           return prop.parentId > -1 ? `| ${createSign(prop.count)}${prop.name} | ${prop.type} | ${prop.description} |` 
             : `| ${prop.name} | ${prop.type} | ${prop.description} |`
         }))}
